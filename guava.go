@@ -217,9 +217,11 @@ func (t *GuavaChaincode) create_account(stub *shim.ChaincodeStub, args []string)
 
 	new_Account_m, _ := json.Marshal(new_Account)
 
+	new_Account_string := string(new_Account_m)
+
 	/*str := `{"owner": "` + account_owner + `", "account_id": "` + account_number +  `", "currency": "` + currency + `", "country": "` + country + `, "balance": "` + strconv.FormatFloat(initialbalance, 'f', 4 ,64) +  `", "type": "` + acctype + `", "country": "` + country + `", "incoming_transfer": "` + nil + `", "outgoing_transfer": "` + nil + `"}`*/
 
-	err = stub.PutState(strconv.FormatInt(account_number, 10), []byte(new_Account_m)) //store the account
+	err = stub.PutState(strconv.FormatInt(account_number, 10), []byte(new_Account_string)) //store the account
 	if err != nil {
 		return nil, err
 	}
@@ -330,13 +332,16 @@ func (t *GuavaChaincode) create_transfer(stub *shim.ChaincodeStub, args []string
 	//update the account states
 
 	toaccAsBytes, _ := json.Marshal(to_acc)
-	err = stub.PutState(to_id, toaccAsBytes)
+
+	to_acc_string := string(toaccAsBytes)
+	err = stub.PutState(to_id, []byte(to_acc_string))
 	if err != nil {
 		return nil, err
 	}
 
 	fromaccAsBytes, _ := json.Marshal(from_acc)
-	err = stub.PutState(from_id, fromaccAsBytes)
+	from_acc_string := string(fromaccAsBytes)
+	err = stub.PutState(from_id, []byte(from_acc_string))
 	if err != nil {
 		return nil, err
 	}
