@@ -74,19 +74,13 @@ func (t *GuavaChaincode) Init(stub *shim.ChaincodeStub, function string, args []
 		return nil, errors.New("Incorrect number of arguments. Expecting 1")
 	}
 
-	// what does this do?
-	//	Aval, err = strconv.Atoi(args[0])
-	//	if err != nil {
-	//		return nil, errors.New("Expecting integer value for asset holding")
-	//	}
-
 	//clear the accounts to
-	/*	var accounthashkey OwnerAccountMap
-		jsonAsBytes, _ = json.Marshal(accounts)								//clear the open trade struct
-		err = stub.PutState(AccountsHashkey, jsonAsBytes)
-		if err != nil {
-			return nil, err
-		}*/
+	//accounts := &Account{}
+	//	jsonAsBytes, _ = json.Marshal(accounts)								//clear the open trade struct
+	err := stub.PutState("hello", []byte(args[0]))
+	if err != nil {
+		return nil, err
+	}
 
 	return nil, nil
 }
@@ -231,7 +225,9 @@ func (t *GuavaChaincode) create_account(stub *shim.ChaincodeStub, args []string)
 
 	//var accounts AccountStruct
 	jsonAsBytes, _ := json.Marshal(OwnerAccount)
-	err = stub.PutState(OwnerAccountMapkey, jsonAsBytes)
+	ownwermap_string := string(jsonAsBytes)
+
+	err = stub.PutState(OwnerAccountMapkey, []byte(ownwermap_string))
 	if err != nil {
 		return nil, err
 	}
