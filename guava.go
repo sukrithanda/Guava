@@ -66,7 +66,7 @@ func main() {
 // ============================================================================================================================
 // Init - reset all the things
 // ============================================================================================================================
-func (t *GuavaChaincode) Init(stub shim.ChaincodeStubInterface, function string, args []string) ([]byte, error) {
+func (t *GuavaChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	//var Aval int
 	//	var err error
 
@@ -94,7 +94,7 @@ func (t *GuavaChaincode) Init(stub shim.ChaincodeStubInterface, function string,
 // ============================================================================================================================
 // Run - Our entry point for Invocations - [LEGACY] obc-peer 4/25/2016
 // ============================================================================================================================
-func (t *GuavaChaincode) Run(stub shim.ChaincodeStubInterface, function string, args []string) ([]byte, error) {
+func (t *GuavaChaincode) Run(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	fmt.Println("run is running " + function)
 	return t.Invoke(stub, function, args)
 }
@@ -102,7 +102,7 @@ func (t *GuavaChaincode) Run(stub shim.ChaincodeStubInterface, function string, 
 // ============================================================================================================================
 // Invoke - Our entry point for Invocations
 // ============================================================================================================================
-func (t *GuavaChaincode) Invoke(stub shim.ChaincodeStubInterface, function string, args []string) ([]byte, error) {
+func (t *GuavaChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	fmt.Println("invoke is running " + function)
 
 	// Handle different functions
@@ -135,7 +135,7 @@ func (t *GuavaChaincode) Invoke(stub shim.ChaincodeStubInterface, function strin
 // ============================================================================================================================
 // Query - Our entry point for Queries
 // ============================================================================================================================
-func (t *GuavaChaincode) Query(stub shim.ChaincodeStubInterface, function string, args []string) ([]byte, error) {
+func (t *GuavaChaincode) Query(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	fmt.Println("query is running " + function)
 
 	// Handle different functions
@@ -150,7 +150,7 @@ func (t *GuavaChaincode) Query(stub shim.ChaincodeStubInterface, function string
 // ============================================================================================================================
 // Read - read a account_num
 // ============================================================================================================================
-func (t *GuavaChaincode) read(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+func (t *GuavaChaincode) read(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
 	var account_num, jsonResp string
 	var err error
 
@@ -171,7 +171,7 @@ func (t *GuavaChaincode) read(stub shim.ChaincodeStubInterface, args []string) (
 // ============================================================================================================================
 // create_account - create new account expected arguments <account_owner, currency, country, acctype>
 // ============================================================================================================================
-func (t *GuavaChaincode) create_account(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+func (t *GuavaChaincode) create_account(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
 	var account_owner, currency, country, acctype string // Entities
 	var account_number int64
 	var initialbalance float64 = 0
@@ -241,7 +241,7 @@ func (t *GuavaChaincode) create_account(stub shim.ChaincodeStubInterface, args [
 // create_transfer - create new account expected arguments <message, fx_rate, value, from_id, to_id, trans_type>
 // ============================================================================================================================
 
-func (t *GuavaChaincode) create_transfer(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+func (t *GuavaChaincode) create_transfer(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
 
 	var trans_type, message, status string // Entities
 	var from_id, to_id string
@@ -349,7 +349,7 @@ func (t *GuavaChaincode) create_transfer(stub shim.ChaincodeStubInterface, args 
 // increment_value - increase balance in account <account_id, value>
 // ============================================================================================================================
 
-func (t *GuavaChaincode) increment_value(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+func (t *GuavaChaincode) increment_value(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
 
 	return nil, nil
 }
@@ -358,7 +358,7 @@ func (t *GuavaChaincode) increment_value(stub shim.ChaincodeStubInterface, args 
 // decrement_value - decrease balance in account <account_id, value>
 // ============================================================================================================================
 
-func (t *GuavaChaincode) decrement_value(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+func (t *GuavaChaincode) decrement_value(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
 	return nil, nil
 
 }
@@ -367,7 +367,7 @@ func (t *GuavaChaincode) decrement_value(stub shim.ChaincodeStubInterface, args 
 // accept_transfer - accept the transfer from the incoming queue <account_id, transaction_id>
 // ============================================================================================================================
 
-func (t *GuavaChaincode) accept_transfer(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+func (t *GuavaChaincode) accept_transfer(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
 
 	// transfer the value
 	return nil, nil
@@ -378,7 +378,7 @@ func (t *GuavaChaincode) accept_transfer(stub shim.ChaincodeStubInterface, args 
 // reject_transfer - reject the transfer from the incoming queue <account_id, transaction_id>
 // ============================================================================================================================
 
-func (t *GuavaChaincode) reject_transfer(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+func (t *GuavaChaincode) reject_transfer(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
 	return nil, nil
 
 }
