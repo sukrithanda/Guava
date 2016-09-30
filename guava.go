@@ -168,7 +168,7 @@ func (t *GuavaChaincode) read(stub *shim.ChaincodeStub, args []string) ([]byte, 
 func (t *GuavaChaincode) create_account(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
 	var account_owner, currency, country, acctype string // Entities
 	var account_number int64
-	var initialbalance float64 = 0
+	var initialbalance float64 = 100
 	var err error
 	fmt.Println("running write()")
 
@@ -186,12 +186,12 @@ func (t *GuavaChaincode) create_account(stub *shim.ChaincodeStub, args []string)
 
 	//check if marble already exists
 
-	accountAsBytes, err := stub.GetState(strconv.FormatInt(account_number, 10))
-	found_acc := Account{}
-	json.Unmarshal(accountAsBytes, &found_acc)
-	if err == nil {
-		return nil, errors.New("this Account arleady exists under" + found_acc.Owner)
-	}
+	/*	accountAsBytes, err := stub.GetState(strconv.FormatInt(account_number, 10))
+		found_acc := Account{}
+		json.Unmarshal(accountAsBytes, &found_acc)
+		if err == nil {
+			return nil, errors.New("this Account arleady exists under" + found_acc.Owner)
+		}*/
 
 	incoming_t := make([]Transfer, 30)
 	outgoing_t := make([]Transfer, 30)
@@ -221,7 +221,7 @@ func (t *GuavaChaincode) create_account(stub *shim.ChaincodeStub, args []string)
 	}
 
 	//add the account number to the OwnerAccountMap
-	OwnerAccount["account_owner"] = append(OwnerAccount["account_owner"], account_number)
+	OwnerAccount[account_owner] = append(OwnerAccount[account_owner], account_number)
 
 	//var accounts AccountStruct
 	jsonAsBytes, _ := json.Marshal(OwnerAccount)
@@ -323,7 +323,7 @@ func (t *GuavaChaincode) create_transfer(stub *shim.ChaincodeStub, args []string
 	to_acc.IncomingTransfer = append(to_acc.IncomingTransfer, *new_transfer)
 
 	//increment this value TODO:handle internal,external transfer
-	to_acc.Balance = to_acc.Balance - new_transfer.Inc_value
+	to_acc.Balance = to_acc.Balance + new_transfer.Inc_value
 
 	//update the account states
 
