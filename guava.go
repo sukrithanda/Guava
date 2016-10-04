@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 )
@@ -193,8 +194,8 @@ func (t *GuavaChaincode) create_account(stub *shim.ChaincodeStub, args []string)
 			return nil, errors.New("this Account arleady exists under" + found_acc.Owner)
 		}*/
 
-	incoming_t := make([]Transfer, 30)
-	outgoing_t := make([]Transfer, 30)
+	incoming_t := make([]Transfer, 1)
+	outgoing_t := make([]Transfer, 1)
 
 	Acc_numstruct := AccountNumber{account_number}
 	//bal_float := strconv.FormatFloat(initialbalance, 'f', -1, 64)
@@ -300,12 +301,14 @@ func (t *GuavaChaincode) create_transfer(stub *shim.ChaincodeStub, args []string
 	json.Unmarshal(fromAccountAsBytes, &from_acc)
 
 	//check that account has enough funds, decrement if internal
-	//TODO: handle internal/external
+
 	if from_acc.Balance < new_transfer.Dec_value {
 		return nil, errors.New("from account does not have enough funds " + from_id)
-	} else {
+	} else if strings.Compare(new_transfer.T_Type, "internal") == 0 {
 
 		from_acc.Balance = from_acc.Balance - new_transfer.Dec_value
+	} else {
+		new_transfer.Status = "pending"
 	}
 
 	//add transfer to outgoing transfer
@@ -320,11 +323,13 @@ func (t *GuavaChaincode) create_transfer(stub *shim.ChaincodeStub, args []string
 	json.Unmarshal(toAccountAsBytes, &to_acc)
 
 	//add transaction to incoming transfer
-	to_acc.IncomingTransfer = append(to_acc.IncomingTransfer, *new_transfer)
 
-	//increment this value TODO:handle internal,external transfer
-	to_acc.Balance = to_acc.Balance + new_transfer.Inc_value
+	//increment this value
+	if strings.Compare(new_transfer.T_Type, "internal") == 0 {
+		to_acc.Balance = to_acc.Balance + new_transfer.Inc_value
+		to_acc.IncomingTransfer = append(to_acc.IncomingTransfer, *new_transfer)
 
+	}
 	//update the account states
 
 	toaccAsBytes, _ := json.Marshal(to_acc)
@@ -352,6 +357,31 @@ func (t *GuavaChaincode) create_transfer(stub *shim.ChaincodeStub, args []string
 
 func (t *GuavaChaincode) increment_value(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
 
+	var account_id string
+
+	if len(args) != 2 {
+		return nil, errors.New("Incorrect number of arguments.")
+	}
+
+	account_id = args[0]
+	inc_val, err := strconv.ParseFloat(args[1], 64)
+
+	incAccountAsBytes, err := stub.GetState(account_id)
+	if err != nil {
+		return nil, errors.New("Could not find the account to increment" + account_id)
+	}
+
+	inc_acc := Account{}
+	json.Unmarshal(incAccountAsBytes, &inc_acc)
+
+	inc_acc.Balance = inc_acc.Balance + inc_val
+	newAccountAsBytes, _ := json.Marshal(inc_acc)
+	newacc_string := string(newAccountAsBytes)
+	err = stub.PutState(account_id, []byte(newacc_string))
+	if err != nil {
+		return nil, err
+	}
+
 	return nil, nil
 }
 
@@ -360,6 +390,32 @@ func (t *GuavaChaincode) increment_value(stub *shim.ChaincodeStub, args []string
 // ============================================================================================================================
 
 func (t *GuavaChaincode) decrement_value(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+
+	var account_id string
+
+	if len(args) != 2 {
+		return nil, errors.New("Incorrect number of arguments.")
+	}
+
+	account_id = args[0]
+	dec_val, err := strconv.ParseFloat(args[1], 64)
+
+	decAccountAsBytes, err := stub.GetState(account_id)
+	if err != nil {
+		return nil, errors.New("Could not find the account to increment" + account_id)
+	}
+
+	dec_acc := Account{}
+	json.Unmarshal(decAccountAsBytes, &dec_acc)
+
+	dec_acc.Balance = dec_acc.Balance - dec_val
+	newAccountAsBytes, _ := json.Marshal(dec_acc)
+	newacc_string := string(newAccountAsBytes)
+	err = stub.PutState(account_id, []byte(newacc_string))
+	if err != nil {
+		return nil, err
+	}
+
 	return nil, nil
 
 }
@@ -370,7 +426,77 @@ func (t *GuavaChaincode) decrement_value(stub *shim.ChaincodeStub, args []string
 
 func (t *GuavaChaincode) accept_transfer(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
 
-	// transfer the value
+	var receiving_id, sending_id, transfer_id string
+
+	if len(args) != 5 {
+		return nil, errors.New("Incorrect number of arguments.")
+	}
+
+	receiving_id = args[0]
+	sending_id = args[1]
+	transfer_id = args[2]
+	dec_value, err := strconv.ParseFloat(args[3], 64)
+	inc_value, err := strconv.ParseFloat(args[4], 64)
+	//get the account from the passed in receiving_id (should be account who accepted)
+
+	rec_id_int, err := strconv.ParseInt(receiving_id, 10, 64)
+	sen_id_int, err := strconv.ParseInt(sending_id, 10, 64)
+	tran_id_int, err := strconv.ParseInt(transfer_id, 10, 64)
+
+	recAccountAsBytes, err := stub.GetState(receiving_id)
+	if err != nil {
+		return nil, errors.New("Could not find the account that is receiving funds " + receiving_id)
+	}
+
+	receiving_acc := Account{}
+	json.Unmarshal(recAccountAsBytes, &receiving_acc)
+
+	// find the account that is sending the transaction from the transaction
+	sendAccountAsBytes, err := stub.GetState(sending_id)
+	if err != nil {
+		return nil, errors.New("Could not find the account that is sending funds " + sending_id)
+	}
+
+	sending_acc := Account{}
+	json.Unmarshal(sendAccountAsBytes, &sending_acc)
+
+	// decrement sending account
+	// increcment receiving account
+
+	if sending_acc.Balance < dec_value {
+		return nil, errors.New("sending account does not have enough funds " + sending_id)
+	} else {
+
+		sending_acc.Balance = sending_acc.Balance - dec_value
+		receiving_acc.Balance = receiving_acc.Balance + inc_value
+	}
+
+	trans_list_o := sending_acc.OutgoingTransfer
+
+	for i := 0; i < len(trans_list_o); i++ {
+		transl := &trans_list_o[i]
+		if transl.Transfer_id == tran_id_int {
+			transl.Status = "approved"
+			receiving_acc.IncomingTransfer = append(receiving_acc.IncomingTransfer, *transl)
+		}
+	}
+
+	//update the account states
+
+	newrecAccountasBytes, _ := json.Marshal(receiving_acc)
+	rec_acc_string := string(newrecAccountasBytes)
+	err = stub.PutState(receiving_id, []byte(rec_acc_string))
+	if err != nil {
+		return nil, err
+	}
+
+	newsendAccountAsBytes, _ := json.Marshal(sending_acc)
+	send_acc_string := string(newsendAccountAsBytes)
+	err = stub.PutState(sending_id, []byte(send_acc_string))
+	if err != nil {
+		return nil, err
+	}
+
 	return nil, nil
 
 }
