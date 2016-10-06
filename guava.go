@@ -14,13 +14,24 @@ import (
 type GuavaChaincode struct {
 }
 
-var OwnerAccountMapkey = "_accountmapkey"
+var GuavaMapkey = "_guavamapkey"
+var UserMapkey = "_ssermapkey"
 
 var accountcount int64 = 1
 var transcount int64 = 1
 
+var guavacount int64 = 1
+
 type AccountNumber struct {
 	Id int64 `json:"id"`
+}
+
+type User struct {
+	Username string `json:"username"`
+	Owner    bool   `json:"owner"`
+	Create   bool   `json: "create"`
+	Approve  bool   `json: "approve"`
+	Read     bool   `json: "read"`
 }
 
 type Transfer struct {
@@ -32,13 +43,16 @@ type Transfer struct {
 	Message     string        `json:"message"`     //description of desired transfer
 	Status      string        `json:"status"`      //current status of transfer <accept,reject,pending>
 	T_Type      string        `json:"type"`        //type of fund transfer <internal,external>
+	Creator     string        `json:"creator"`     //the username of the user who created the transactions
+	Approver    string        `json:"approver"`    //the username of the user who approved the payment
+	Time        string        `json:"time"`        // time the transfer was created
 	Transfer_id int64         `json:"transfer_id"` //unique identifier for transfer
 }
 
 // Transfers = make(map[String]Account[])
 
 type Account struct {
-	Owner            string        `json:"owner"`             //owner of the account registered with the membership service
+	AccountName      string        `json:"acc_name"`          // the name of the account
 	AccountID        AccountNumber `json:"account_id"`        //unique accountid
 	Currency         string        `json:"currency"`          //currency representing the
 	Country          string        `json:"country"`           //operational or savings acco
@@ -48,11 +62,8 @@ type Account struct {
 	OutgoingTransfer []Transfer    `json:"outgoing_transfer"` //array of outgoing transactions
 }
 
-//need to clear the map so have to encapsulate in a struct
-//type OwnerAccountMap struct{
-var OwnerAccount = make(map[string][]int64)
-
-//}
+var GuavaMap = make(map[int64][]int64)
+var UserMap = make(map[int64][]User)
 
 // ============================================================================================================================
 // Main
@@ -75,9 +86,7 @@ func (t *GuavaChaincode) Init(stub *shim.ChaincodeStub, function string, args []
 		return nil, errors.New("Incorrect number of arguments. Expecting 1")
 	}
 
-	//clear the accounts to
-	//accounts := &Account{}
-	//	jsonAsBytes, _ = json.Marshal(accounts)								//clear the open trade struct
+	//this is a test entry into the worldstate
 	err := stub.PutState("hello", []byte(args[0]))
 	if err != nil {
 		return nil, err
@@ -121,7 +130,11 @@ func (t *GuavaChaincode) Invoke(stub *shim.ChaincodeStub, function string, args 
 	} else if function == "reject_transfer" { //reject a pending open transfer
 
 		return t.reject_transfer(stub, args)
+	} else if function == "create_user" {
+
+		return t.create_user(stub, args)
 	}
+
 	fmt.Println("invoke did not find func: " + function) //error invoke function not found
 
 	return nil, errors.New("Received unknown function invocation")
@@ -164,44 +177,42 @@ func (t *GuavaChaincode) read(stub *shim.ChaincodeStub, args []string) ([]byte, 
 }
 
 // ============================================================================================================================
-// create_account - create new account expected arguments <account_owner, currency, country, acctype>
+// create_account - create new account expected arguments <account_name, guava_id, currency, country, acctype, username>
 // ============================================================================================================================
 func (t *GuavaChaincode) create_account(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
-	var account_owner, currency, country, acctype string // Entities
-	var account_number int64
+	var account_name, currency, country, acctype, username string // Entities
+	var account_number, guava_id int64
+	//this is just for testing
 	var initialbalance float64 = 100
 	var err error
-	fmt.Println("running write()")
 
-	if len(args) != 4 {
-		return nil, errors.New("Incorrect number of arguments. Expecting 2. Account owner and currency type")
+	if len(args) != 6 {
+		return nil, errors.New("Incorrect number of arguments. Expecting 6 arguments <account_name, guava_id, currency, country, acctype>")
 	}
 
-	account_owner = args[0]
-	currency = args[1]
-	country = args[2]
-	acctype = args[3]
+	account_name = args[0]
+	guava_id, err = strconv.ParseInt(args[1], 10, 64)
+	currency = args[2]
+	country = args[3]
+	acctype = args[4]
+	username = args[5]
 
 	account_number = accountcount
 	accountcount = accountcount + 1
 
-	//check if marble already exists
+	if guava_id == -1 {
 
-	/*	accountAsBytes, err := stub.GetState(strconv.FormatInt(account_number, 10))
-		found_acc := Account{}
-		json.Unmarshal(accountAsBytes, &found_acc)
-		if err == nil {
-			return nil, errors.New("this Account arleady exists under" + found_acc.Owner)
-		}*/
+		guava_id = guavacount
+		guavacount = guavacount + 1
+	}
 
 	incoming_t := make([]Transfer, 1)
 	outgoing_t := make([]Transfer, 1)
 
 	Acc_numstruct := AccountNumber{account_number}
-	//bal_float := strconv.FormatFloat(initialbalance, 'f', -1, 64)
 
 	new_Account := &Account{
-		Owner:            account_owner,
+		AccountName:      account_name,
 		AccountID:        Acc_numstruct,
 		Currency:         currency,
 		Country:          country,
@@ -214,21 +225,19 @@ func (t *GuavaChaincode) create_account(stub *shim.ChaincodeStub, args []string)
 
 	new_Account_string := string(new_Account_m)
 
-	/*str := `{"owner": "` + account_owner + `", "account_id": "` + account_number +  `", "currency": "` + currency + `", "country": "` + country + `, "balance": "` + strconv.FormatFloat(initialbalance, 'f', 4 ,64) +  `", "type": "` + acctype + `", "country": "` + country + `", "incoming_transfer": "` + nil + `", "outgoing_transfer": "` + nil + `"}`*/
-
 	err = stub.PutState(strconv.FormatInt(account_number, 10), []byte(new_Account_string)) //store the account
 	if err != nil {
 		return nil, err
 	}
 
 	//add the account number to the OwnerAccountMap
-	OwnerAccount[account_owner] = append(OwnerAccount[account_owner], account_number)
+	GuavaMap[guava_id] = append(GuavaMap[guava_id], account_number)
 
 	//var accounts AccountStruct
-	jsonAsBytes, _ := json.Marshal(OwnerAccount)
+	jsonAsBytes, _ := json.Marshal(GuavaMap)
 	ownwermap_string := string(jsonAsBytes)
 
-	err = stub.PutState(OwnerAccountMapkey, []byte(ownwermap_string))
+	err = stub.PutState(GuavaMapkey, []byte(ownwermap_string))
 	if err != nil {
 		return nil, err
 	}
@@ -242,7 +251,7 @@ func (t *GuavaChaincode) create_account(stub *shim.ChaincodeStub, args []string)
 
 func (t *GuavaChaincode) create_transfer(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
 
-	var trans_type, message, status string // Entities
+	var trans_type, message, status, time, creator, approver string // Entities
 	var from_id, to_id string
 	var fx_rate string
 	var value_inc, value_dec string
@@ -250,7 +259,7 @@ func (t *GuavaChaincode) create_transfer(stub *shim.ChaincodeStub, args []string
 
 	var from_id_int, to_id_int int64
 
-	if len(args) != 8 {
+	if len(args) != 10 {
 		return nil, errors.New("Incorrect number of arguments.")
 	}
 
@@ -265,6 +274,14 @@ func (t *GuavaChaincode) create_transfer(stub *shim.ChaincodeStub, args []string
 	to_id = args[5]
 	trans_type = args[6]
 	status = args[7]
+	time = args[8]
+	creator = args[9]
+
+	if strings.Compare(trans_type, "internal") == 0 {
+		approver = args[9]
+	} else {
+		approver = ""
+	}
 
 	dec_float, err := strconv.ParseFloat(value_dec, 64)
 	inc_float, err := strconv.ParseFloat(value_inc, 64)
@@ -287,9 +304,10 @@ func (t *GuavaChaincode) create_transfer(stub *shim.ChaincodeStub, args []string
 		Message:     message,
 		Status:      status,
 		T_Type:      trans_type,
+		Creator:     creator,
+		Approver:    approver,
+		Time:        time,
 		Transfer_id: trans_id}
-
-	//new_Transfer_m, _ := json.Marshal(new_transfer)
 
 	//find the account entry for from_id
 	fromAccountAsBytes, err := stub.GetState(from_id)
@@ -300,7 +318,7 @@ func (t *GuavaChaincode) create_transfer(stub *shim.ChaincodeStub, args []string
 	from_acc := Account{}
 	json.Unmarshal(fromAccountAsBytes, &from_acc)
 
-	//check that account has enough funds, decrement if internal
+	//check that account has enough funds, decrement if internal otherwise set status as pending
 
 	if from_acc.Balance < new_transfer.Dec_value {
 		return nil, errors.New("from account does not have enough funds " + from_id)
@@ -426,9 +444,9 @@ func (t *GuavaChaincode) decrement_value(stub *shim.ChaincodeStub, args []string
 
 func (t *GuavaChaincode) accept_transfer(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
 
-	var receiving_id, sending_id, transfer_id string
+	var receiving_id, sending_id, transfer_id, approver string
 
-	if len(args) != 5 {
+	if len(args) != 6 {
 		return nil, errors.New("Incorrect number of arguments.")
 	}
 
@@ -437,6 +455,7 @@ func (t *GuavaChaincode) accept_transfer(stub *shim.ChaincodeStub, args []string
 	transfer_id = args[2]
 	dec_value, err := strconv.ParseFloat(args[3], 64)
 	inc_value, err := strconv.ParseFloat(args[4], 64)
+	approver = args[5]
 	//get the account from the passed in receiving_id (should be account who accepted)
 
 	rec_id_int, err := strconv.ParseInt(receiving_id, 10, 64)
@@ -477,6 +496,7 @@ func (t *GuavaChaincode) accept_transfer(stub *shim.ChaincodeStub, args []string
 		transl := &trans_list_o[i]
 		if transl.Transfer_id == tran_id_int {
 			transl.Status = "approved"
+			transl.Approver = approver
 			receiving_acc.IncomingTransfer = append(receiving_acc.IncomingTransfer, *transl)
 		}
 	}
@@ -506,6 +526,79 @@ func (t *GuavaChaincode) accept_transfer(stub *shim.ChaincodeStub, args []string
 // ============================================================================================================================
 
 func (t *GuavaChaincode) reject_transfer(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+
+	var sending_id, transfer_id, approver string
+
+	if len(args) != 3 {
+		return nil, errors.New("Incorrect number of arguments.")
+	}
+
+	sending_id = args[0]
+	transfer_id = args[1]
+	approver = args[2]
+	//get the account from the passed in receiving_id (should be account who accepted)
+
+	sen_id_int, err := strconv.ParseInt(sending_id, 10, 64)
+	tran_id_int, err := strconv.ParseInt(transfer_id, 10, 64)
+
+	// find the account that is sending the transfer
+	sendAccountAsBytes, err := stub.GetState(sending_id)
+	if err != nil {
+		return nil, errors.New("Could not find the account that is sending funds " + sending_id)
+	}
+
+	sending_acc := Account{}
+	json.Unmarshal(sendAccountAsBytes, &sending_acc)
+
+	trans_list_o := sending_acc.OutgoingTransfer
+
+	for i := 0; i < len(trans_list_o); i++ {
+		transl := &trans_list_o[i]
+		if transl.Transfer_id == tran_id_int {
+			transl.Status = "rejected"
+			transl.Approver = approver
+		}
+	}
+
+	newsendAccountAsBytes, _ := json.Marshal(sending_acc)
+	send_acc_string := string(newsendAccountAsBytes)
+	err = stub.PutState(sending_id, []byte(send_acc_string))
+	if err != nil {
+		return nil, err
+	}
+
+	return nil, nil
+
+}
+
+// ============================================================================================================================
+// create_user - create a new user with the specific access rights <username, owner, create, approve, read>
+// ============================================================================================================================
+
+func (t *GuavaChaincode) create_user(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+	var username, owner, create, approve, read string
+	var guava_id int64
+
+	if len(args) != 6 {
+		return nil, errors.New("Incorrect number of arguments.")
+	}
+
+	username = args[0]
+	owner = args[1]
+	create = args[2]
+	approve = args[3]
+	read = args[4]
+
+	guava_id, err := strconv.ParseInt(args[5], 10, 64)
+
+	// create User struct
+
+	//find guava_id in user map
+
+	// add user struct to the array
+
+	// add the new map to the world state
+
 	return nil, nil
 
 }
