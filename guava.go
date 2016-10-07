@@ -15,16 +15,12 @@ type GuavaChaincode struct {
 }
 
 var GuavaMapkey = "_guavamapkey"
-var UserMapkey = "_ssermapkey"
+var UserMapkey = "_usermapkey"
 
 var accountcount int64 = 1
 var transcount int64 = 1
 
 var guavacount int64 = 1
-
-type AccountNumber struct {
-	Id int64 `json:"id"`
-}
 
 type User struct {
 	Username string `json:"username"`
@@ -35,35 +31,35 @@ type User struct {
 }
 
 type Transfer struct {
-	From        AccountNumber `json:"from"`        //account number who generated transfer
-	To          AccountNumber `json:"to"`          //account number receiving transfer
-	Dec_value   float64       `json:"dec_value"`   //amount to decrease in from account
-	Inc_value   float64       `json:"inc_value"`   //amount to increase in to account
-	Fx_rate     float64       `json:"fx_rate"`     //fx_rate for the transfer
-	Message     string        `json:"message"`     //description of desired transfer
-	Status      string        `json:"status"`      //current status of transfer <accept,reject,pending>
-	T_Type      string        `json:"type"`        //type of fund transfer <internal,external>
-	Creator     string        `json:"creator"`     //the username of the user who created the transactions
-	Approver    string        `json:"approver"`    //the username of the user who approved the payment
-	Time        string        `json:"time"`        // time the transfer was created
-	Transfer_id int64         `json:"transfer_id"` //unique identifier for transfer
+	From        int64   `json:"from"`        //account number who generated transfer
+	To          int64   `json:"to"`          //account number receiving transfer
+	Dec_value   float64 `json:"dec_value"`   //amount to decrease in from account
+	Inc_value   float64 `json:"inc_value"`   //amount to increase in to account
+	Fx_rate     float64 `json:"fx_rate"`     //fx_rate for the transfer
+	Message     string  `json:"message"`     //description of desired transfer
+	Status      string  `json:"status"`      //current status of transfer <accept,reject,pending>
+	T_Type      string  `json:"type"`        //type of fund transfer <internal,external>
+	Creator     string  `json:"creator"`     //the username of the user who created the transactions
+	Approver    string  `json:"approver"`    //the username of the user who approved the payment
+	Time        string  `json:"time"`        // time the transfer was created
+	Transfer_id int64   `json:"transfer_id"` //unique identifier for transfer
 }
 
 // Transfers = make(map[String]Account[])
 
 type Account struct {
-	AccountName      string        `json:"acc_name"`          // the name of the account
-	AccountID        AccountNumber `json:"account_id"`        //unique accountid
-	Currency         string        `json:"currency"`          //currency representing the
-	Country          string        `json:"country"`           //operational or savings acco
-	Balance          float64       `json:"balance"`           //current account balance
-	Type             string        `json:"type"`              //operational or savings acco
-	IncomingTransfer []Transfer    `json:"incoming_transfer"` //array of incoming transfers
-	OutgoingTransfer []Transfer    `json:"outgoing_transfer"` //array of outgoing transactions
+	AccountName      string     `json:"name"`              // the name of the account
+	AccountID        int64      `json:"id"`                //unique accountid
+	Currency         string     `json:"currency"`          //currency representing the
+	Country          string     `json:"country"`           //operational or savings acco
+	Balance          float64    `json:"balance"`           //current account balance
+	Type             string     `json:"type"`              //operational or savings acco
+	IncomingTransfer []Transfer `json:"incoming_transfer"` //array of incoming transfers
+	OutgoingTransfer []Transfer `json:"outgoing_transfer"` //array of outgoing transactions
 }
 
-var GuavaMap = make(map[int64][]int64)
-var UserMap = make(map[int64][]User)
+var GuavaMap = make(map[string][]int64)
+var UserMap = make(map[string][]User)
 
 // ============================================================================================================================
 // Main
@@ -180,18 +176,19 @@ func (t *GuavaChaincode) read(stub *shim.ChaincodeStub, args []string) ([]byte, 
 // create_account - create new account expected arguments <account_name, guava_id, currency, country, acctype, username>
 // ============================================================================================================================
 func (t *GuavaChaincode) create_account(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
-	var account_name, currency, country, acctype string // Entities
-	var account_number, guava_id int64
+	var account_name, currency, country, acctype, guava_id string // Entities
+	var account_number int64
 	//this is just for testing
 	var initialbalance float64 = 100
 	var err error
 
 	if len(args) != 5 {
-		return nil, errors.New("Incorrect number of arguments. Expecting 6 arguments <account_name, guava_id, currency, country, acctype>")
+		return nil, errors.New("Incorrect number of arguments. Expecting 5 arguments <account_name, guava_id, currency, country, acctype>")
 	}
 
 	account_name = args[0]
-	guava_id, err = strconv.ParseInt(args[1], 10, 64)
+	guava_id = args[1]
+	//guava_id, err = strconv.ParseInt(args[1], 10, 64)
 	currency = args[2]
 	country = args[3]
 	acctype = args[4]
@@ -199,20 +196,18 @@ func (t *GuavaChaincode) create_account(stub *shim.ChaincodeStub, args []string)
 	account_number = accountcount
 	accountcount = accountcount + 1
 
-	if guava_id == -1 {
+	if strings.Compare(guava_id, "-1") == 0 {
 
-		guava_id = guavacount
+		guava_id = strconv.FormatInt(guavacount, 10)
 		guavacount = guavacount + 1
 	}
 
 	incoming_t := make([]Transfer, 1)
 	outgoing_t := make([]Transfer, 1)
 
-	Acc_numstruct := AccountNumber{account_number}
-
 	new_Account := &Account{
 		AccountName:      account_name,
-		AccountID:        Acc_numstruct,
+		AccountID:        account_number,
 		Currency:         currency,
 		Country:          country,
 		Balance:          initialbalance,
@@ -289,14 +284,11 @@ func (t *GuavaChaincode) create_transfer(stub *shim.ChaincodeStub, args []string
 	from_id_int, err = strconv.ParseInt(from_id, 10, 64)
 	to_id_int, err = strconv.ParseInt(to_id, 10, 64)
 
-	fromacc_struct := AccountNumber{from_id_int}
-	toacc_struct := AccountNumber{to_id_int}
-
 	//create transfer
 
 	new_transfer := &Transfer{
-		From:        fromacc_struct,
-		To:          toacc_struct,
+		From:        from_id_int,
+		To:          to_id_int,
 		Dec_value:   dec_float,
 		Inc_value:   inc_float,
 		Fx_rate:     fx_rate_float,
@@ -578,7 +570,7 @@ func (t *GuavaChaincode) create_user(stub *shim.ChaincodeStub, args []string) ([
 	var username string
 
 	var owner, create, approve, read bool
-	var guava_id int64
+	var guava_id string
 
 	if len(args) != 6 {
 		return nil, errors.New("Incorrect number of arguments.")
@@ -589,9 +581,12 @@ func (t *GuavaChaincode) create_user(stub *shim.ChaincodeStub, args []string) ([
 	create, err = strconv.ParseBool(args[2])
 	approve, err = strconv.ParseBool(args[3])
 	read, err = strconv.ParseBool(args[4])
-	guava_id, err = strconv.ParseInt(args[5], 10, 64)
+	//guava_id, err = strconv.ParseInt(args[5], 10, 64)
 
+	guava_id = args[5]
 	// create User struct
+
+	guava_id_int, err := strconv.ParseInt(guava_id, 10, 64)
 
 	new_user := &User{
 		Username: username,
@@ -601,7 +596,7 @@ func (t *GuavaChaincode) create_user(stub *shim.ChaincodeStub, args []string) ([
 		Read:     read}
 
 	//find guava_id in user map
-	if _, ok := UserMap[guava_id]; ok {
+	if guava_id_int <= guavacount-1 {
 		//add the account number to the OwnerAccountMap
 		// add user struct to the array
 
