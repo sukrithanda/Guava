@@ -202,8 +202,8 @@ func (t *GuavaChaincode) create_account(stub *shim.ChaincodeStub, args []string)
 		guavacount = guavacount + 1
 	}
 
-	incoming_t := make([]Transfer, 1)
-	outgoing_t := make([]Transfer, 1)
+	incoming_t := make([]Transfer, 0)
+	outgoing_t := make([]Transfer, 0)
 
 	new_Account := &Account{
 		AccountName:      account_name,
@@ -253,7 +253,7 @@ func (t *GuavaChaincode) create_transfer(stub *shim.ChaincodeStub, args []string
 
 	var from_id_int, to_id_int int64
 
-	if len(args) != 10 {
+	if len(args) != 9 {
 		return nil, errors.New("Incorrect number of arguments.")
 	}
 
@@ -267,14 +267,14 @@ func (t *GuavaChaincode) create_transfer(stub *shim.ChaincodeStub, args []string
 	from_id = args[4]
 	to_id = args[5]
 	trans_type = args[6]
-	status = args[7]
-	time = args[8]
-	creator = args[9]
+	time = args[7]
+	creator = args[8]
 
 	if strings.Compare(trans_type, "internal") == 0 {
-		approver = args[9]
+		approver = args[8]
+		status = "approved"
 	} else {
-		approver = ""
+		approver = "pending"
 	}
 
 	dec_float, err := strconv.ParseFloat(value_dec, 64)
