@@ -29,9 +29,9 @@ type AccountNumber struct {
 type User struct {
 	Username string `json:"username"`
 	Owner    bool   `json:"owner"`
-	Create   bool   `json: "create"`
-	Approve  bool   `json: "approve"`
-	Read     bool   `json: "read"`
+	Create   bool   `json:"create"`
+	Approve  bool   `json:"approve"`
+	Read     bool   `json:"read"`
 }
 
 type Transfer struct {
@@ -180,13 +180,13 @@ func (t *GuavaChaincode) read(stub *shim.ChaincodeStub, args []string) ([]byte, 
 // create_account - create new account expected arguments <account_name, guava_id, currency, country, acctype, username>
 // ============================================================================================================================
 func (t *GuavaChaincode) create_account(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
-	var account_name, currency, country, acctype, username string // Entities
+	var account_name, currency, country, acctype string // Entities
 	var account_number, guava_id int64
 	//this is just for testing
 	var initialbalance float64 = 100
 	var err error
 
-	if len(args) != 6 {
+	if len(args) != 5 {
 		return nil, errors.New("Incorrect number of arguments. Expecting 6 arguments <account_name, guava_id, currency, country, acctype>")
 	}
 
@@ -195,7 +195,6 @@ func (t *GuavaChaincode) create_account(stub *shim.ChaincodeStub, args []string)
 	currency = args[2]
 	country = args[3]
 	acctype = args[4]
-	username = args[5]
 
 	account_number = accountcount
 	accountcount = accountcount + 1
@@ -458,8 +457,8 @@ func (t *GuavaChaincode) accept_transfer(stub *shim.ChaincodeStub, args []string
 	approver = args[5]
 	//get the account from the passed in receiving_id (should be account who accepted)
 
-	rec_id_int, err := strconv.ParseInt(receiving_id, 10, 64)
-	sen_id_int, err := strconv.ParseInt(sending_id, 10, 64)
+	//rec_id_int, err := strconv.ParseInt(receiving_id, 10, 64)
+	//sen_id_int, err := strconv.ParseInt(sending_id, 10, 64)
 	tran_id_int, err := strconv.ParseInt(transfer_id, 10, 64)
 
 	recAccountAsBytes, err := stub.GetState(receiving_id)
@@ -538,7 +537,7 @@ func (t *GuavaChaincode) reject_transfer(stub *shim.ChaincodeStub, args []string
 	approver = args[2]
 	//get the account from the passed in receiving_id (should be account who accepted)
 
-	sen_id_int, err := strconv.ParseInt(sending_id, 10, 64)
+	//	sen_id_int, err := strconv.ParseInt(sending_id, 10, 64)
 	tran_id_int, err := strconv.ParseInt(transfer_id, 10, 64)
 
 	// find the account that is sending the transfer
@@ -576,7 +575,9 @@ func (t *GuavaChaincode) reject_transfer(stub *shim.ChaincodeStub, args []string
 // ============================================================================================================================
 
 func (t *GuavaChaincode) create_user(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
-	var username, owner, create, approve, read string
+	var username string
+
+	var owner, create, approve, read bool
 	var guava_id int64
 
 	if len(args) != 6 {
@@ -584,20 +585,43 @@ func (t *GuavaChaincode) create_user(stub *shim.ChaincodeStub, args []string) ([
 	}
 
 	username = args[0]
-	owner = args[1]
-	create = args[2]
-	approve = args[3]
-	read = args[4]
-
-	guava_id, err := strconv.ParseInt(args[5], 10, 64)
+	owner, err := strconv.ParseBool(args[1])
+	create, err = strconv.ParseBool(args[2])
+	approve, err = strconv.ParseBool(args[3])
+	read, err = strconv.ParseBool(args[4])
+	guava_id, err = strconv.ParseInt(args[5], 10, 64)
 
 	// create User struct
 
+	new_user := &User{
+		Username: username,
+		Owner:    owner,
+		Create:   create,
+		Approve:  approve,
+		Read:     read}
+
 	//find guava_id in user map
+	if _, ok := UserMap[guava_id]; ok {
+		//add the account number to the OwnerAccountMap
+		// add user struct to the array
 
-	// add user struct to the array
+		UserMap[guava_id] = append(UserMap[guava_id], *new_user)
 
-	// add the new map to the world state
+		//var accounts AccountStruct
+		jsonAsBytes, _ := json.Marshal(UserMap)
+		usermap_string := string(jsonAsBytes)
+
+		// add the new map to the world state
+
+		err = stub.PutState(UserMapkey, []byte(usermap_string))
+		if err != nil {
+			return nil, err
+		}
+
+	} else {
+		return nil, errors.New("Guava id does not exist")
+
+	}
 
 	return nil, nil
 
