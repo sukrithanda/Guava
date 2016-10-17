@@ -173,13 +173,13 @@ func (t *GuavaChaincode) read(stub *shim.ChaincodeStub, args []string) ([]byte, 
 }
 
 // ============================================================================================================================
-// create_account - create new account expected arguments <account_name, guava_id, currency, country, acctype, username>
+// create_account - create new account expected arguments <account_name, guava_id, currency, country, acctype>
 // ============================================================================================================================
 func (t *GuavaChaincode) create_account(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
 	var account_name, currency, country, acctype, guava_id string // Entities
 	var account_number int64
 	//this is just for testing
-	var initialbalance float64 = 100
+	var initialbalance float64
 	var err error
 
 	if len(args) != 5 {
@@ -192,6 +192,8 @@ func (t *GuavaChaincode) create_account(stub *shim.ChaincodeStub, args []string)
 	currency = args[2]
 	country = args[3]
 	acctype = args[4]
+
+	initialbalance, err = strconv.ParseFloat(args[5], 64)
 
 	account_number = accountcount
 	accountcount = accountcount + 1
@@ -240,7 +242,7 @@ func (t *GuavaChaincode) create_account(stub *shim.ChaincodeStub, args []string)
 }
 
 // ============================================================================================================================
-// create_transfer - create new account expected arguments <message, fx_rate, value, from_id, to_id, trans_type>
+// create_transfer - create new account expected arguments <message, fx_rate, value_inc, value_dec, from_id, to_id, tans_type(internal, payment), time, creator>
 // ============================================================================================================================
 
 func (t *GuavaChaincode) create_transfer(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
@@ -430,12 +432,13 @@ func (t *GuavaChaincode) decrement_value(stub *shim.ChaincodeStub, args []string
 }
 
 // ============================================================================================================================
-// accept_transfer - accept the transfer from the incoming queue <account_id, transaction_id>
+// accept_transfer - accept the transfer from the outgoing array<to_id, from_id, transfer_id, dec_value, inc_value, approver>
 // ============================================================================================================================
 
 func (t *GuavaChaincode) accept_transfer(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
 
 	var receiving_id, sending_id, transfer_id, approver string
+	var found bool
 
 	if len(args) != 6 {
 		return nil, errors.New("Incorrect number of arguments.")
@@ -482,6 +485,7 @@ func (t *GuavaChaincode) accept_transfer(stub *shim.ChaincodeStub, args []string
 	}
 
 	trans_list_o := sending_acc.OutgoingTransfer
+	found = false
 
 	for i := 0; i < len(trans_list_o); i++ {
 		transl := &trans_list_o[i]
@@ -489,7 +493,12 @@ func (t *GuavaChaincode) accept_transfer(stub *shim.ChaincodeStub, args []string
 			transl.Status = "approved"
 			transl.Approver = approver
 			receiving_acc.IncomingTransfer = append(receiving_acc.IncomingTransfer, *transl)
+			found = true
 		}
+	}
+
+	if found == false {
+		return nil, errors.New("The transfer id was not found: " + transfer_id)
 	}
 
 	//update the account states
@@ -513,7 +522,7 @@ func (t *GuavaChaincode) accept_transfer(stub *shim.ChaincodeStub, args []string
 }
 
 // ============================================================================================================================
-// reject_transfer - reject the transfer from the incoming queue <account_id, transaction_id>
+// reject_transfer - reject the transfer int the outgoing array <from_id, trans_id, approver>
 // ============================================================================================================================
 
 func (t *GuavaChaincode) reject_transfer(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
@@ -563,7 +572,7 @@ func (t *GuavaChaincode) reject_transfer(stub *shim.ChaincodeStub, args []string
 }
 
 // ============================================================================================================================
-// create_user - create a new user with the specific access rights <username, owner, create, approve, read>
+// create_user - create a new user with the specific access rights and add it to the User map <username, owner, create, approve, read>
 // ============================================================================================================================
 
 func (t *GuavaChaincode) create_user(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
