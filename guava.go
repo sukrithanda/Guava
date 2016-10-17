@@ -182,7 +182,7 @@ func (t *GuavaChaincode) create_account(stub *shim.ChaincodeStub, args []string)
 	var initialbalance float64
 	var err error
 
-	if len(args) != 5 {
+	if len(args) != 6 {
 		return nil, errors.New("Incorrect number of arguments. Expecting 5 arguments <account_name, guava_id, currency, country, acctype>")
 	}
 
