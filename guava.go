@@ -194,6 +194,10 @@ func (t *GuavaChaincode) read_guava(stub *shim.ChaincodeStub, args []string) ([]
 
 		acc_id_str := strconv.FormatInt(account_nums[i], 10)
 		valAsbytes, err := stub.GetState(acc_id_str) //get the var from chaincode state
+		if err != nil {
+			jsonResp = "{\"Error\":\"Failed to get account for " + acc_id_str + "\"}"
+			return nil, errors.New(jsonResp)
+		}
 		acc := Account{}
 		json.Unmarshal(valAsbytes, &acc)
 		account_slice = append(account_slice, acc)
