@@ -145,6 +145,8 @@ func (t *GuavaChaincode) Query(stub *shim.ChaincodeStub, function string, args [
 	// Handle different functions
 	if function == "read" { //read a variable
 		return t.read(stub, args)
+	} else if function == "read_guava" {
+		return t.read_guava(stub, args)
 	}
 	fmt.Println("query did not find func: " + function) //error
 
@@ -170,6 +172,42 @@ func (t *GuavaChaincode) read(stub *shim.ChaincodeStub, args []string) ([]byte, 
 	}
 
 	return valAsbytes, nil //send it onward
+}
+
+// ============================================================================================================================
+// Read_guava - read a account_num
+// ============================================================================================================================
+func (t *GuavaChaincode) read_guava(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+	var guava_id, jsonResp string
+	var err error
+
+	if len(args) != 1 {
+		return nil, errors.New("Incorrect number of arguments. Expecting quava_id to query")
+	}
+
+	guava_id = args[0]
+
+	account_nums := GuavaMap[guava_id]
+	account_slice := make([]Account, 0)
+
+	for i := 0; i < len(account_nums); i++ {
+
+		acc_id_str := strconv.FormatInt(account_nums[i], 10)
+		valAsbytes, err := stub.GetState(acc_id_str) //get the var from chaincode state
+		acc := Account{}
+		json.Unmarshal(valAsbytes, &acc)
+		account_slice = append(account_slice, acc)
+
+	}
+
+	sliceAsBytes, _ := json.Marshal(account_slice)
+
+	if err != nil {
+		jsonResp = "{\"Error\":\"Failed to get state for " + guava_id + "\"}"
+		return nil, errors.New(jsonResp)
+	}
+
+	return sliceAsBytes, nil //send it onward
 }
 
 // ============================================================================================================================
